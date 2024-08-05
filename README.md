@@ -2,7 +2,7 @@
 
 The Pantry Tracker App helps you manage and keep track of your pantry inventory with ease. This web application allows you to add, remove, and track items. 
 
-![Pantry Tracker App Screenshot](https://i.pinimg.com/564x/c9/9a/4a/c99a4a969d6bf29733adc5ff32915ecd.jpg)
+![Pantry Tracker App Screenshot](https://i.pinimg.com/564x/27/3b/22/273b221304609e6cded8843ee325f381.jpg)
 
 ## Features
 - **Ombre Background:** Stylish gradient background to enhance visual appeal.
