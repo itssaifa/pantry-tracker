@@ -120,7 +120,7 @@ export default function Home() {
             fontSize: '1.25rem', // Increase font size
           }}
         >
-          Organize, Optimize, Simplify
+          Organize, Optimize, Observe
         </Typography>
 
         <Stack 
