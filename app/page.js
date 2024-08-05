@@ -1,83 +1,89 @@
 'use client';
 import { useState, useEffect } from "react";
-import { firestore, auth } from "@/firebase"; // Ensure auth is imported from your firebase config
-import { Box, Modal, Typography, Stack, TextField, Button } from "@mui/material";
+import { firestore } from "@/firebase"; 
+import { Box, Modal, Typography, Stack, TextField, Button, InputAdornment } from "@mui/material";
 import { collection, deleteDoc, doc, getDocs, query, setDoc, getDoc } from "firebase/firestore";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth"; // Import onAuthStateChanged
 
 export default function Home() {
-  const [inventory, setInventory] = useState([]); // State variable to store inventory
-  const [open, setOpen] = useState(false); // State variable to add and remove stuff; default value is false
-  const [itemName, setItemName] = useState(''); // Default value is empty string
-  const [user, setUser] = useState(null); // State variable for user authentication
-  const [isSignUp, setIsSignUp] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [inventory, setInventory] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [itemName, setItemName] = useState('');
+  const [search, setSearch] = useState('');
 
-  // Fetch inventory from Firebase
+  const pastelColors = [
+    '#FFB3BA', // Light pink
+    '#FFDFBA', // Light orange
+    '#FFFFBA', // Light yellow
+    '#BAFFC9', // Light green
+    '#BAE1FF', // Light blue
+    '#E2BAFF', // Light purple
+  ];
+
   const updateInventory = async () => {
-    const snapshot = query(collection(firestore, 'inventory'));
-    const docs = await getDocs(snapshot);
-    const inventoryList = [];
-    docs.forEach((doc) => {
-      inventoryList.push({
-        name: doc.id,
-        ...doc.data(),
+    try {
+      const snapshot = query(collection(firestore, 'inventory'));
+      const docs = await getDocs(snapshot);
+      const inventoryList = [];
+      docs.forEach((doc) => {
+        inventoryList.push({
+          name: doc.id,
+          ...doc.data(),
+        });
       });
-    });
-    setInventory(inventoryList);
+      setInventory(inventoryList);
+    } catch (error) {
+      console.error("Error fetching inventory:", error);
+    }
   };
 
   const addItem = async (item) => {
-    const docRef = doc(collection(firestore, 'inventory'), item);
-    const docSnap = await getDoc(docRef);
+    try {
+      const docRef = doc(collection(firestore, 'inventory'), item);
+      const docSnap = await getDoc(docRef);
 
-    if (docSnap.exists()) {
-      const { quantity } = docSnap.data();
-      await setDoc(docRef, { quantity: quantity + 1 });
-    } else { 
-      await setDoc(docRef, { quantity: 1 });
+      if (docSnap.exists()) {
+        const { quantity } = docSnap.data();
+        await setDoc(docRef, { quantity: quantity + 1 });
+      } else { 
+        await setDoc(docRef, { quantity: 1 });
+      }
+
+      await updateInventory();
+    } catch (error) {
+      console.error("Error adding item:", error);
     }
-
-    await updateInventory();
   };
 
   const removeItem = async (item) => {
-    const docRef = doc(collection(firestore, 'inventory'), item);
-    const docSnap = await getDoc(docRef);
+    try {
+      const docRef = doc(collection(firestore, 'inventory'), item);
+      const docSnap = await getDoc(docRef);
 
-    if (docSnap.exists()) {
-      const { quantity } = docSnap.data();
-      if (quantity === 1) {
-        await deleteDoc(docRef);
-      } else {
-        await setDoc(docRef, { quantity: quantity - 1 });
+      if (docSnap.exists()) {
+        const { quantity } = docSnap.data();
+        if (quantity === 1) {
+          await deleteDoc(docRef);
+        } else {
+          await setDoc(docRef, { quantity: quantity - 1 });
+        }
       }
-    }
 
-    await updateInventory();
-  };
-
-  const handleAuth = async () => {
-    if (isSignUp) {
-      await createUserWithEmailAndPassword(auth, email, password);
-    } else {
-      await signInWithEmailAndPassword(auth, email, password);
+      await updateInventory();
+    } catch (error) {
+      console.error("Error removing item:", error);
     }
   };
 
   useEffect(() => {
     updateInventory();
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-    });
-
-    return () => unsubscribe(); // Clean up the subscription on unmount
   }, []);
 
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
+
+  const filteredInventory = inventory.filter(item =>
+    item.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <Box
@@ -85,128 +91,193 @@ export default function Home() {
       height="100vh"
       display="flex"
       flexDirection="column"
-      justifyContent="center"
       alignItems="center"
-      gap={2}
+      p={3}
+      sx={{
+        background: 'linear-gradient(135deg, #e0e0e0, #d0d0d0, #a0a0a0, #000000)' // Gray to black gradient
+      }}
     >
-      {user ? (
-        <>
-          <Typography variant="h2" color="#222">
-            Pantry Pulse
-          </Typography>
-          <Typography variant="h6" color="#777">
-            Keep Your Pantry in Check
-          </Typography>
-          <Modal open={open} onClose={handleClose}>
-            <Box 
-              position="absolute" 
-              top="50%" 
-              left="50%"
-              width={400}
-              bgcolor="white"
-              border="2px solid #000"
-              boxShadow={24}
-              p={4}
-              display="flex"
-              flexDirection="column"
-              gap={3}
-              sx={{
-                transform: 'translate(-50%, -50%)',
-              }}
-            >
-              <Typography variant="h6">Add Item</Typography>
-              <Stack width="100%" direction="row" spacing={2}>
-                <TextField
-                  variant="outlined"
-                  fullWidth
-                  value={itemName}
-                  onChange={(e) => setItemName(e.target.value)}
-                />
-                <Button 
-                  variant="outlined" 
-                  onClick={() => {
-                    addItem(itemName);
-                    setItemName('');
-                    handleClose();
-                  }}
-                >
-                  Add
-                </Button>
-              </Stack>
-            </Box>
-          </Modal>
-          <Button 
-            variant="contained" 
-            onClick={handleOpen}
+      <Box width="100%" maxWidth="1200px">
+        <Typography 
+          variant="h2" 
+          color="#ffffff" 
+          align="center" 
+          gutterBottom
+          sx={{ 
+            textShadow: '2px 2px 4px rgba(0, 0, 0, 0.7)', // Add shadow for better visibility
+            fontSize: '3rem', // Increase font size
+          }}
+        >
+          Stock Smart
+        </Typography>
+        <Typography 
+          variant="h6" 
+          color="#dddddd" 
+          align="center" 
+          gutterBottom
+          sx={{ 
+            textShadow: '1px 1px 3px rgba(0, 0, 0, 0.7)', // Add shadow for better visibility
+            fontSize: '1.25rem', // Increase font size
+          }}
+        >
+          Organize, Optimize, Simplify
+        </Typography>
+
+        <Stack 
+          direction="row" 
+          justifyContent="center" 
+          mb={3}
+        >
+          <TextField
+            variant="outlined"
+            placeholder="Search items..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  ⭐
+                </InputAdornment>
+              ),
+            }}
+            sx={{ 
+              width: '100%',
+              maxWidth: '600px',
+              backgroundColor: '#ffffff',
+              borderRadius: '4px',
+              // Remove border and outline styles
+              '& .MuiOutlinedInput-root': {
+                '& fieldset': {
+                  borderColor: 'transparent',  // Remove the border color
+                },
+                '&:hover fieldset': {
+                  borderColor: 'transparent',  // Remove the border color on hover
+                },
+              },
+              boxShadow: '0px 0px 5px rgba(0, 0, 0, 0.3)',
+            }}
+          />
+        </Stack>
+
+        <Box 
+          border="2px solid #000000"  // Black border
+          borderRadius="8px" 
+          overflow="hidden"
+        >
+          <Box
+            width="100%" 
+            bgcolor="#333333" 
+            display="flex"
+            alignItems="center" 
+            justifyContent="space-between"
+            p={2}
           >
-            Add New Item
-          </Button>
-          <Box border="1px solid #333">
-            <Box
-              width="800px" 
-              height="100px" 
-              bgcolor="#ADD8E6" 
-              display="flex"
-              alignItems="center" 
-              justifyContent="center"
+            <Typography variant="h4" color="#ffffff">
+              Inventory Items
+            </Typography>
+            <Button 
+              variant="contained" 
+              onClick={handleOpen}
+              sx={{ backgroundColor: '#0033cc', ':hover': { backgroundColor: '#002a99' } }}
             >
-              <Typography variant="h2" color="#333">
-                Inventory Items
-              </Typography>
-            </Box>
-            <Stack width="800px" height="300px" spacing={2} overflow="auto">
-              {inventory.map(({ name, quantity }) => (
-                <Box 
-                  key={name} 
-                  width="100%"
-                  minHeight="150px"
-                  display="flex"
+              Add New Item
+            </Button>
+          </Box>
+          <Stack spacing={2} p={2}>
+            {filteredInventory.map(({ name, quantity }, index) => (
+              <Box 
+                key={name} 
+                display="flex"
+                flexDirection="row"
+                alignItems="center"
+                justifyContent="space-between"
+                bgcolor={pastelColors[index % pastelColors.length]} // Use pastel colors
+                border="1px solid #ddd"
+                borderRadius="8px"
+                padding={2}
+                boxShadow={1}
+              >
+                <Typography variant="h6" color="#333">
+                  {name.charAt(0).toUpperCase() + name.slice(1)}
+                </Typography>
+                <Stack 
+                  direction="row"
+                  spacing={1}
                   alignItems="center"
-                  justifyContent="space-between"
-                  backgroundColor="#f0f0f0"
-                  padding={5}
+                  justifyContent="center"
                 >
-                  <Typography variant="h3" color="#333" textAlign="center">
-                    {name.charAt(0).toUpperCase() + name.slice(1)}
-                  </Typography>
-                  <Typography variant="h3" color="#333" textAlign="center">
+                  <Button 
+                    variant="contained" 
+                    onClick={() => addItem(name)}
+                    color="success"
+                    sx={{ width: '40px', height: '40px' }}
+                  >
+                    +
+                  </Button>
+                  <Typography variant="h6" color="#333">
                     {quantity}
                   </Typography>
                   <Button 
                     variant="contained" 
                     onClick={() => removeItem(name)}
+                    color="error"
+                    sx={{ width: '40px', height: '40px' }}
                   >
-                    Remove
+                    -
                   </Button>
-                </Box>
-              ))}
-            </Stack>
-          </Box>
-        </>
-      ) : (
-        <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-          <Typography variant="h4">{isSignUp ? "Sign Up" : "Log In"}</Typography>
-          <TextField
-            label="Email"
-            variant="outlined"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <TextField
-            label="Password"
-            type="password"
-            variant="outlined"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <Button variant="contained" onClick={handleAuth}>
-            {isSignUp ? "Sign Up" : "Log In"}
-          </Button>
-          <Button variant="text" onClick={() => setIsSignUp(!isSignUp)}>
-            {isSignUp ? "Already have an account? Log In" : "Don't have an account? Sign Up"}
-          </Button>
+                </Stack>
+                <Button 
+                  variant="contained" 
+                  onClick={() => removeItem(name)}
+                  color="error"
+                  sx={{ width: '80px', height: '40px' }}
+                >
+                  Delete
+                </Button>
+              </Box>
+            ))}
+          </Stack>
         </Box>
-      )}
+      </Box>
+
+      <Modal open={open} onClose={handleClose}>
+        <Box 
+          position="absolute" 
+          top="50%" 
+          left="50%"
+          width={400}
+          bgcolor="#ffffff" 
+          border="2px solid #000"
+          boxShadow={24}
+          p={4}
+          display="flex"
+          flexDirection="column"
+          gap={3}
+          sx={{
+            transform: 'translate(-50%, -50%)',
+          }}
+        >
+          <Typography variant="h6">Add Item</Typography>
+          <Stack width="100%" direction="row" spacing={2}>
+            <TextField
+              variant="outlined"
+              fullWidth
+              value={itemName}
+              onChange={(e) => setItemName(e.target.value)}
+            />
+            <Button 
+              variant="outlined" 
+              onClick={() => {
+                addItem(itemName);
+                setItemName('');
+                handleClose();
+              }}
+            >
+              Add
+            </Button>
+          </Stack>
+        </Box>
+      </Modal>
     </Box>
   );
 }
